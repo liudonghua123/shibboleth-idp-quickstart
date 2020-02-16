@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AttributeFilterPolicyGroup id="ShibbolethFilterPolicy"
+         xmlns="urn:mace:shibboleth:2.0:afp"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="urn:mace:shibboleth:2.0:afp http://shibboleth.net/schema/idp/shibboleth-afp.xsd">
+ 
+     <AttributeFilterPolicy id="carsiAttrFilterPolicy">
+         <PolicyRequirementRule xsi:type="ANY" />
+         <AttributeRule attributeID="eduPersonScopedAffiliation" permitAny="true" />
+         <AttributeRule attributeID="eduPersonTargetedID" permitAny="true" />
+         <AttributeRule attributeID="eduPersonEntitlement" permitAny="true" />
+	 <!-- <AttributeRule attributeID="eduPersonPrincipalName" permitAny="true" /> -->
+     </AttributeFilterPolicy>
+ 
+     <AttributeFilterPolicy id="carsiAttrFilterToSPPolicy">
+         <PolicyRequirementRule xsi:type="Requester" value="https://sp.example.org" />
+         <AttributeRule attributeID="eduPersonEntitlement" permitAny="true" />
+     </AttributeFilterPolicy>
+ 
+</AttributeFilterPolicyGroup>
