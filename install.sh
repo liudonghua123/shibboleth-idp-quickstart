@@ -301,6 +301,37 @@ EOL
     rm -rf /tmp/tmp_crontab
 }
 
+function process_ntp
+{
+    # before installing ntpd, we should turn off timesyncd
+    timedatectl set-ntp no
+    # check ntpd installed?
+    which ntpd
+    if [ "$?" -ne 0 ]; then
+        case "$OS" in
+        ubuntu)
+            apt-get install -y ntp
+            ;;
+        centos)
+            yum install -y ntp
+            ;;
+        *)
+            echo "Unsupport OS, please contact liudonghua123@gmail.com"
+            exit 1
+            ;;
+        esac
+    fi
+    echo "updating time from ntp.aliyun.com"
+    ntpdate -u ntp.aliyun.com
+    echo "setting timezone to Asia/Shanghai"
+    timedatectl set-timezone Asia/Shanghai
+    if [ ! -f /etc/ntp.conf.default ]; then
+        cp /etc/ntp.conf /etc/ntp.conf.default
+        echo "server ntp.aliyun.com" > /etc/ntp.conf
+        service ntpd restart
+    fi
+}
+
 function post_work
 {
     echo "Now almost everything configurated, but you should modify attribute-resolver.xml/attribute-filter.xml according to your actural settings"
@@ -310,6 +341,7 @@ function post_work
 function startup
 {
     check_java
+    process_ntp
     install_credentials
     install_tomcat
     install_idp
