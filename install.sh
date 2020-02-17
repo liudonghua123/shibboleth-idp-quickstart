@@ -167,7 +167,7 @@ function update_idp_configurations
 
 function install_service
 {
-    export CATALINA_HOME=/opt/apache-tomcat-8.5.50
+    export CATALINA_HOME=/opt/apache-tomcat-8.5.51
     which systemctl
     if [ "$?" -eq 0 ]; then
         echo -n "# Systemd unit file for tomcat
