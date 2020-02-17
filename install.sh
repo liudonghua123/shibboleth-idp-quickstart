@@ -2,14 +2,12 @@
 
 # read property utility
 CONFIG_FILE=config.properties
-function get_property
-{
-    grep "^$1=" $CONFIG_FILE | cut -d'=' -f2-
+function get_property() {
+  grep "^$1=" $CONFIG_FILE | cut -d'=' -f2-
 }
 
-function get_os
-{
-    cat /etc/os-release | grep "^ID=" |  cut -d= -f2-
+function get_os() {
+  cat /etc/os-release | grep "^ID=" | cut -d= -f2-
 }
 
 # read properties as bash variable
@@ -35,155 +33,145 @@ TOMCAT_FILENAME=apache-tomcat-8.5.51
 # get the os, like ubuntu, centos
 OS=$(get_os)
 
-function set_java_environment
-{
-    JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))
-    JRE_HOME="$(dirname $(dirname $(readlink -f $(which javac))))/jre"
-    grep JAVA_HOME /etc/environment 2>/dev/null && echo "JAVA_HOME already set" || echo "export JAVA_HOME=$JAVA_HOME" >> /etc/environment
-    grep JRE_HOME /etc/environment 2>/dev/null && echo "JRE_HOME already set" || echo "export JRE_HOME=$JRE_HOME" >> /etc/environment
-    source /etc/environment
+function set_java_environment() {
+  JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))
+  JRE_HOME="$(dirname $(dirname $(readlink -f $(which javac))))/jre"
+  grep JAVA_HOME /etc/environment 2>/dev/null && echo "JAVA_HOME already set" || echo "export JAVA_HOME=$JAVA_HOME" >>/etc/environment
+  grep JRE_HOME /etc/environment 2>/dev/null && echo "JRE_HOME already set" || echo "export JRE_HOME=$JRE_HOME" >>/etc/environment
+  source /etc/environment
 }
 
-function check_java
-{
-    echo "checking java!"
-    which java
-    if [ $? -ne 0 ]; then
-        echo "You should install java and set JAVA_HOME/JRE_HOME correctly before this operation"
-        echo "Now install java..."
-        case "$OS" in
-        ubuntu)
-            apt-get update
-            apt-get install -y openjdk-8-jdk
-            ;;
-        centos)
-            yum update -y
-            yum install -y java-1.8.0-openjdk-devel java-1.8.0-openjdk
-            ;;
-        *)
-            echo "Unsupport OS, please contact liudonghua123@gmail.com"
-            exit 1
-            ;;
-        esac
-        set_java_environment
-    elif [ -z "$JAVA_HOME" -o -z "$JRE_HOME" ]; then
-        echo "JAVA_HOME/JRE_HOME not set correctly, set them in /etc/environment"
-        set_java_environment
-        echo "Java installed and configured ok"
-    fi
-}
-
-function install_ldap_util
-{
+function check_java() {
+  echo "checking java!"
+  which java
+  if [ $? -ne 0 ]; then
+    echo "You should install java and set JAVA_HOME/JRE_HOME correctly before this operation"
+    echo "Now install java..."
     case "$OS" in
-    ubuntu)
+      ubuntu)
         apt-get update
-        apt-get install -y ldap-utils
+        apt-get install -y openjdk-8-jdk
         ;;
-    centos)
+      centos)
         yum update -y
-        yum install -y openldap-clients
+        yum install -y java-1.8.0-openjdk-devel java-1.8.0-openjdk
         ;;
-    *)
+      *)
         echo "Unsupport OS, please contact liudonghua123@gmail.com"
         exit 1
         ;;
     esac
+    set_java_environment
+  elif [ -z "$JAVA_HOME" -o -z "$JRE_HOME" ]; then
+    echo "JAVA_HOME/JRE_HOME not set correctly, set them in /etc/environment"
+    set_java_environment
+    echo "Java installed and configured ok"
+  fi
 }
 
-function install_credentials
-{
-    echo "checking and creating credentials keystore!"
-    # check whether credentials exist
-    if [ ! -f "$credentials_keystore_path" ]; then
-        mkdir -p /opt/credentials 2>/dev/null
-        echo "keystore $credentials_keystore_path not exist, try to check whether $credentials_key_path exists"
-        if [ ! -f "$credentials_key_path" ]; then
-            echo "key $credentials_key_path not exits, will generate a self signed key ($credentials_key_path) and cert ($credentials_certs_path) pair in pem format"
-            openssl req -x509 -sha256 -nodes -days 3650 -subj "/CN=*.$idp_scope"  -newkey rsa:2048 -keyout $credentials_key_path -out $credentials_certs_path
-        fi
-        # now the key and cert are prepared
-        openssl pkcs12 -export -out $credentials_keystore_path -inkey $credentials_key_path -in $credentials_certs_path -passout pass:changeit
+function install_ldap_util() {
+  case "$OS" in
+    ubuntu)
+      apt-get update
+      apt-get install -y ldap-utils
+      ;;
+    centos)
+      yum update -y
+      yum install -y openldap-clients
+      ;;
+    *)
+      echo "Unsupport OS, please contact liudonghua123@gmail.com"
+      exit 1
+      ;;
+  esac
+}
+
+function install_credentials() {
+  echo "checking and creating credentials keystore!"
+  # check whether credentials exist
+  if [ ! -f "$credentials_keystore_path" ]; then
+    mkdir -p /opt/credentials 2>/dev/null
+    echo "keystore $credentials_keystore_path not exist, try to check whether $credentials_key_path exists"
+    if [ ! -f "$credentials_key_path" ]; then
+      echo "key $credentials_key_path not exits, will generate a self signed key ($credentials_key_path) and cert ($credentials_certs_path) pair in pem format"
+      openssl req -x509 -sha256 -nodes -days 3650 -subj "/CN=*.$idp_scope" -newkey rsa:2048 -keyout $credentials_key_path -out $credentials_certs_path
     fi
-    echo "credentials keystore prepared!"
+    # now the key and cert are prepared
+    openssl pkcs12 -export -out $credentials_keystore_path -inkey $credentials_key_path -in $credentials_certs_path -passout pass:changeit
+  fi
+  echo "credentials keystore prepared!"
 }
 
-function install_tomcat
-{
-    echo "extract $TOMCAT_FILENAME.tar.gz to /opt/"
-    tar -xzf $TOMCAT_FILENAME.tar.gz -C /opt/
+function install_tomcat() {
+  echo "extract $TOMCAT_FILENAME.tar.gz to /opt/"
+  tar -xzf $TOMCAT_FILENAME.tar.gz -C /opt/
 }
 
-function install_idp
-{
-    echo "extract $IDP_FILENAME.tar.gz to /opt"
-    tar -xzf $IDP_FILENAME.tar.gz -C /opt
-    # run install of idp
-    echo "install the $IDP_FILENAME to $idp_target_dir"
-    echo execute /opt/$IDP_FILENAME/bin/install.sh \
-        -Didp.src.dir=$idp_src_dir \
-        -Didp.target.dir=$idp_target_dir \
-        -Didp.host.name=$idp_host_name \
-        -Didp.entityID="https://$idp_scope/idp/shibboleth" \
-        -Didp.scope=$idp_scope \
-        -Didp.keystore.password=$credentials_keystore_password \
-        -Didp.sealer.password=$credentials_keystore_password
-    /opt/$IDP_FILENAME/bin/install.sh \
-        -Didp.src.dir=$idp_src_dir \
-        -Didp.target.dir=$idp_target_dir \
-        -Didp.host.name=$idp_host_name \
-        -Didp.entityID="https://$idp_scope/idp/shibboleth" \
-        -Didp.scope=$idp_scope \
-        -Didp.keystore.password=$credentials_keystore_password \
-        -Didp.sealer.password=$credentials_keystore_password
+function install_idp() {
+  echo "extract $IDP_FILENAME.tar.gz to /opt"
+  tar -xzf $IDP_FILENAME.tar.gz -C /opt
+  # run install of idp
+  echo "install the $IDP_FILENAME to $idp_target_dir"
+  echo execute /opt/$IDP_FILENAME/bin/install.sh \
+    -Didp.src.dir=$idp_src_dir \
+    -Didp.target.dir=$idp_target_dir \
+    -Didp.host.name=$idp_host_name \
+    -Didp.entityID="https://$idp_scope/idp/shibboleth" \
+    -Didp.scope=$idp_scope \
+    -Didp.keystore.password=$credentials_keystore_password \
+    -Didp.sealer.password=$credentials_keystore_password
+  /opt/$IDP_FILENAME/bin/install.sh \
+    -Didp.src.dir=$idp_src_dir \
+    -Didp.target.dir=$idp_target_dir \
+    -Didp.host.name=$idp_host_name \
+    -Didp.entityID="https://$idp_scope/idp/shibboleth" \
+    -Didp.scope=$idp_scope \
+    -Didp.keystore.password=$credentials_keystore_password \
+    -Didp.sealer.password=$credentials_keystore_password
 }
 
-function update_tomcat_credential_settings
-{
-    echo "update credentials.keystore.path/credentials.keystore.password settings in tomcat configuration files"
-    credentials_keystore_path=$credentials_keystore_path
-    credentials_keystore_password=$credentials_keystore_password
-    # https://linuxize.com/post/how-to-use-sed-to-find-and-replace-string-in-files/
-    grep -rl "#credentials.keystore.path" /opt/$TOMCAT_FILENAME | xargs sed -i "s|#credentials.keystore.path|${credentials_keystore_path}|g" 
-    grep -rl "#credentials.keystore.password" /opt/$TOMCAT_FILENAME | xargs sed -i "s/#credentials.keystore.password/${credentials_keystore_password}/g" 
+function update_tomcat_credential_settings() {
+  echo "update credentials.keystore.path/credentials.keystore.password settings in tomcat configuration files"
+  credentials_keystore_path=$credentials_keystore_path
+  credentials_keystore_password=$credentials_keystore_password
+  # https://linuxize.com/post/how-to-use-sed-to-find-and-replace-string-in-files/
+  grep -rl "#credentials.keystore.path" /opt/$TOMCAT_FILENAME | xargs sed -i "s|#credentials.keystore.path|${credentials_keystore_path}|g"
+  grep -rl "#credentials.keystore.password" /opt/$TOMCAT_FILENAME | xargs sed -i "s/#credentials.keystore.password/${credentials_keystore_password}/g"
 }
 
-function checking_ldap_connectivity
-{
-    echo "trying to connect ldap to test its connectivity"
-    install_ldap_util
-    ldapwhoami -h $ldap_ip -D $idp_authn_LDAP_bindDN -w $idp_authn_LDAP_bindDNCredential
-    $? && echo "ldap connection seems not correct" ||echo "ldap connection ok"
+function checking_ldap_connectivity() {
+  echo "trying to connect ldap to test its connectivity"
+  install_ldap_util
+  ldapwhoami -h $ldap_ip -D $idp_authn_LDAP_bindDN -w $idp_authn_LDAP_bindDNCredential
+  $? && echo "ldap connection seems not correct" || echo "ldap connection ok"
 }
 
-function update_idp_configurations
-{
-    echo update_ldap_settings_of_idp
-    # backup
-    cp $idp_target_dir/conf/ldap.properties $idp_target_dir/conf/ldap.properties.default
-    cp $idp_target_dir/conf/attribute-resolver.xml $idp_target_dir/conf/attribute-resolver.xml.default
-    cp $idp_target_dir/conf/audit.xml $idp_target_dir/conf/audit.xml.default
-    cp $idp_target_dir/conf/metadata-providers.xml $idp_target_dir/conf/metadata-providers.xml.default
-    # use configurated files
-    cp conf/ldap.properties $idp_target_dir/conf/ldap.properties
-    cp conf/attribute-filter.xml $idp_target_dir/conf/attribute-filter.xml
-    cp conf/attribute-resolver.xml $idp_target_dir/conf/attribute-resolver.xml
-    cp conf/audit.xml $idp_target_dir/conf/audit.xml
-    cp conf/metadata-providers.xml $idp_target_dir/conf/metadata-providers.xml
-    # updating...
-    grep -rl "#idp.authn.LDAP.ldapURL" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.ldapURL|$idp_authn_LDAP_ldapURL|g"
-    grep -rl "#idp.authn.LDAP.baseDN" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.baseDN|$idp_authn_LDAP_baseDN|g"
-    grep -rl "#idp.authn.LDAP.userFilter" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.userFilter|$idp_authn_LDAP_userFilter|g"
-    grep -rl "#idp.authn.LDAP.bindDNCredential" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.bindDNCredential|$idp_authn_LDAP_bindDNCredential|g"
-    grep -rl "#idp.authn.LDAP.bindDN" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.bindDN|$idp_authn_LDAP_bindDN|g"
+function update_idp_configurations() {
+  echo update_ldap_settings_of_idp
+  # backup
+  cp $idp_target_dir/conf/ldap.properties $idp_target_dir/conf/ldap.properties.default
+  cp $idp_target_dir/conf/attribute-resolver.xml $idp_target_dir/conf/attribute-resolver.xml.default
+  cp $idp_target_dir/conf/audit.xml $idp_target_dir/conf/audit.xml.default
+  cp $idp_target_dir/conf/metadata-providers.xml $idp_target_dir/conf/metadata-providers.xml.default
+  # use configurated files
+  cp conf/ldap.properties $idp_target_dir/conf/ldap.properties
+  cp conf/attribute-filter.xml $idp_target_dir/conf/attribute-filter.xml
+  cp conf/attribute-resolver.xml $idp_target_dir/conf/attribute-resolver.xml
+  cp conf/audit.xml $idp_target_dir/conf/audit.xml
+  cp conf/metadata-providers.xml $idp_target_dir/conf/metadata-providers.xml
+  # updating...
+  grep -rl "#idp.authn.LDAP.ldapURL" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.ldapURL|$idp_authn_LDAP_ldapURL|g"
+  grep -rl "#idp.authn.LDAP.baseDN" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.baseDN|$idp_authn_LDAP_baseDN|g"
+  grep -rl "#idp.authn.LDAP.userFilter" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.userFilter|$idp_authn_LDAP_userFilter|g"
+  grep -rl "#idp.authn.LDAP.bindDNCredential" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.bindDNCredential|$idp_authn_LDAP_bindDNCredential|g"
+  grep -rl "#idp.authn.LDAP.bindDN" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.bindDN|$idp_authn_LDAP_bindDN|g"
 }
 
-function install_service
-{
-    export CATALINA_HOME=/opt/$TOMCAT_FILENAME
-    which systemctl
-    if [ "$?" -eq 0 ]; then
-        echo -n "# Systemd unit file for tomcat
+function install_service() {
+  export CATALINA_HOME=/opt/$TOMCAT_FILENAME
+  which systemctl
+  if [ "$?" -eq 0 ]; then
+    echo -n "# Systemd unit file for tomcat
 [Unit]
 Description=Apache Tomcat Web Application Container
 After=syslog.target network.target
@@ -210,14 +198,14 @@ Restart=always
 [Install]
 WantedBy=multi-user.target
 
-"  > /etc/systemd/system/tomcat.service
-        systemctl daemon-reload
-        # auto start when reboot
-        systemctl enable tomcat
-    else
-        # https://mkyong.com/tomcat/how-to-install-apache-tomcat-8-on-debian/
-        # https://coderwall.com/p/yqrusq/tomcat-7-init-d-script
-        cat > /etc/init.d/tomcat <<EOL
+" >/etc/systemd/system/tomcat.service
+    systemctl daemon-reload
+    # auto start when reboot
+    systemctl enable tomcat
+  else
+    # https://mkyong.com/tomcat/how-to-install-apache-tomcat-8-on-debian/
+    # https://coderwall.com/p/yqrusq/tomcat-7-init-d-script
+    cat >/etc/init.d/tomcat <<EOL
 #!/bin/bash
 #
 #https://wiki.debian.org/LSBInitScripts
@@ -234,16 +222,15 @@ WantedBy=multi-user.target
 ### END INIT INFO
 
 EOL
-        echo -n "
+    echo -n "
 export CATALINA_HOME=$CATALINA_HOME
 export JAVA_HOME=$JAVA_HOME
-" >> /etc/init.d/tomcat
-        cat >> /etc/init.d/tomcat <<EOL
-
+" >>/etc/init.d/tomcat
+    cat >>/etc/init.d/tomcat <<EOL
 export PATH=$JAVA_HOME/bin:$PATH
 
 tomcat_pid() {
-    echo `ps -fe | grep $CATALINA_HOME | grep -v grep | tr -s " "|cut -d" " -f2`
+    echo $(ps -fe | grep $CATALINA_HOME | grep -v grep | tr -s " " | cut -d" " -f2)
 }
 start() {
     echo "Starting Tomcat..."
@@ -267,90 +254,86 @@ esac
 
 exit 0
 EOL
-        chmod 755 /etc/init.d/tomcat
-        # auto start when reboot
-        update-rc.d tomcat defaults
-    fi
-    service tomcat start
-    service tomcat status
+    chmod 755 /etc/init.d/tomcat
+    # auto start when reboot
+    update-rc.d tomcat defaults
+  fi
+  service tomcat start
+  service tomcat status
 }
 
-function process_log
-{
-    echo "processing log configurations"
-    mkdir -p /var/www/html/auditlog/ 2>/dev/null
-    cat > /var/www/html/auditlog/auditlog.sh <<EOL
+function process_log() {
+  echo "processing log configurations"
+  mkdir -p /var/www/html/auditlog/ 2>/dev/null
+  cat >/var/www/html/auditlog/auditlog.sh <<EOL
 #!/usr/bin/env bash
 
-rm -rf /var/www/html/auditlog/auditlog-`date -d -24hours +%Y-%m-%d-%H`.log
-grep `date -d -1hours +%Y-%m-%dT%H` /opt/shibboleth-idp/logs/idp-audit.log > /var/www/html/auditlog/auditlog-`date -d -1hours +%Y-%m-%d-%H`.log
+rm -rf /var/www/html/auditlog/auditlog-$(date -d -24hours +%Y-%m-%d-%H).log
+grep $(date -d -1hours +%Y-%m-%dT%H) /opt/shibboleth-idp/logs/idp-audit.log > /var/www/html/auditlog/auditlog-$(date -d -1hours +%Y-%m-%d-%H).log
 EOL
-    chmod a+x /var/www/html/auditlog/auditlog.sh
-    # create symbol link for auditlog
-    if [ ! -f /opt/$TOMCAT_FILENAME/webapps/auditlog ]; then
-        ln -s /var/www/html/auditlog /opt/$TOMCAT_FILENAME/webapps/auditlog
-    fi
-    # install crontab if necessary
-    crontab -l > /tmp/tmp_crontab
-    grep auditlog /tmp/tmp_crontab
-    if [ "$?" -ne 0 ]; then
-        echo "auditlog crontab job not found, installing..."
-        echo "0 */1 * * * sh /var/www/html/auditlog/auditlog.sh >/dev/null 2>&1" >> /tmp/tmp_crontab
-        crontab /tmp/tmp_crontab
-    fi
-    rm -rf /tmp/tmp_crontab
+  chmod a+x /var/www/html/auditlog/auditlog.sh
+  # create symbol link for auditlog
+  if [ ! -f /opt/$TOMCAT_FILENAME/webapps/auditlog ]; then
+    ln -s /var/www/html/auditlog /opt/$TOMCAT_FILENAME/webapps/auditlog
+  fi
+  # install crontab if necessary
+  crontab -l >/tmp/tmp_crontab
+  grep auditlog /tmp/tmp_crontab
+  if [ "$?" -ne 0 ]; then
+    echo "auditlog crontab job not found, installing..."
+    echo "0 */1 * * * sh /var/www/html/auditlog/auditlog.sh >/dev/null 2>&1" >>/tmp/tmp_crontab
+    crontab /tmp/tmp_crontab
+  fi
+  rm -rf /tmp/tmp_crontab
 }
 
-function process_ntp
-{
-    # before installing ntpd, we should turn off timesyncd
-    timedatectl set-ntp no
-    # check ntpd installed?
-    which ntpd
-    if [ "$?" -ne 0 ]; then
-        case "$OS" in
-        ubuntu)
-            apt-get install -y ntp
-            ;;
-        centos)
-            yum install -y ntp
-            ;;
-        *)
-            echo "Unsupport OS, please contact liudonghua123@gmail.com"
-            exit 1
-            ;;
-        esac
-    fi
-    echo "updating time from ntp.aliyun.com"
-    ntpdate -u ntp.aliyun.com
-    echo "setting timezone to Asia/Shanghai"
-    timedatectl set-timezone Asia/Shanghai
-    if [ ! -f /etc/ntp.conf.default ]; then
-        cp /etc/ntp.conf /etc/ntp.conf.default
-        echo "server ntp.aliyun.com" > /etc/ntp.conf
-        service ntpd restart
-    fi
+function process_ntp() {
+  # before installing ntpd, we should turn off timesyncd
+  timedatectl set-ntp no
+  # check ntpd installed?
+  which ntpd
+  if [ "$?" -ne 0 ]; then
+    case "$OS" in
+      ubuntu)
+        apt-get install -y ntp
+        ;;
+      centos)
+        yum install -y ntp
+        ;;
+      *)
+        echo "Unsupport OS, please contact liudonghua123@gmail.com"
+        exit 1
+        ;;
+    esac
+  fi
+  echo "updating time from ntp.aliyun.com"
+  ntpdate -u ntp.aliyun.com
+  echo "setting timezone to Asia/Shanghai"
+  timedatectl set-timezone Asia/Shanghai
+  if [ ! -f /etc/ntp.conf.default ]; then
+    cp /etc/ntp.conf /etc/ntp.conf.default
+    echo "server ntp.aliyun.com" >/etc/ntp.conf
+    service ntpd restart
+  fi
 }
 
-function post_work
-{
-    echo "Now almost everything configurated, but you should modify attribute-resolver.xml/attribute-filter.xml according to your actural settings"
-    echo "You can start/stop/status your tomcat service use service command!"
+function post_work() {
+  echo "Now almost everything configurated, but you should modify attribute-resolver.xml/attribute-filter.xml according to your actural settings"
+  echo "You can start/stop/status your tomcat service use service command!"
 }
 
-function startup
-{
-    check_java
-    process_ntp
-    install_credentials
-    install_tomcat
-    install_idp
-    update_tomcat_credential_settings
-    checking_ldap_connectivity
-    update_idp_configurations
-    install_service
-    process_log
-    post_work
+function startup() {
+  check_java
+  process_ntp
+  install_credentials
+  install_tomcat
+  install_idp
+  update_tomcat_credential_settings
+  checking_ldap_connectivity
+  update_idp_configurations
+  install_service
+  process_log
+  post_work
 }
 
 startup
