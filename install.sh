@@ -97,10 +97,10 @@ function install_credentials
     # check whether credentials exist
     if [ ! -f "$credentials_keystore_path" ]; then
         mkdir -p /opt/credentials 2>/dev/null
-        echo "keystore $credentials_keystore_path not exist, try to generate from pem format of $credentials_key_path and $credentials_certs_path"
+        echo "keystore $credentials_keystore_path not exist, try to check whether $credentials_key_path exists"
         if [ ! -f "$credentials_key_path" ]; then
-            echo "key $credentials_key_path not exits, will generate a self signed key and cert pair"
-            openssl req -x509 -sha256 -nodes -days 3650 -subj "/CN=*.ynu.edu.cn"  -newkey rsa:2048 -keyout $credentials_key_path -out $credentials_certs_path
+            echo "key $credentials_key_path not exits, will generate a self signed key ($credentials_key_path) and cert ($credentials_certs_path) pair in pem format"
+            openssl req -x509 -sha256 -nodes -days 3650 -subj "/CN=*.$idp_scope"  -newkey rsa:2048 -keyout $credentials_key_path -out $credentials_certs_path
         fi
         # now the key and cert are prepared
         openssl pkcs12 -export -out $credentials_keystore_path -inkey $credentials_key_path -in $credentials_certs_path -passout pass:changeit
