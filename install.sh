@@ -275,6 +275,32 @@ EOL
     service tomcat status
 }
 
+function process_log
+{
+    echo "processing log configurations"
+    mkdir -p /var/www/html/auditlog/ 2>/dev/null
+    cat > /var/www/html/auditlog/auditlog.sh <<EOL
+#!/usr/bin/env bash
+
+rm -rf /var/www/html/auditlog/auditlog-`date -d -24hours +%Y-%m-%d-%H`.log
+grep `date -d -1hours +%Y-%m-%dT%H` /opt/shibboleth-idp/logs/idp-audit.log > /var/www/html/auditlog/auditlog-`date -d -1hours +%Y-%m-%d-%H`.log
+EOL
+    chmod a+x /var/www/html/auditlog/auditlog.sh
+    # create symbol link for auditlog
+    if [ ! -f /opt/$TOMCAT_FILENAME/webapps/auditlog ]; then
+        ln -s /var/www/html/auditlog /opt/$TOMCAT_FILENAME/webapps/auditlog
+    fi
+    # install crontab if necessary
+    crontab -l > /tmp/tmp_crontab
+    grep auditlog /tmp/tmp_crontab
+    if [ "$?" -ne 0 ]; then
+        echo "auditlog crontab job not found, installing..."
+        echo "0 */1 * * * sh /var/www/html/auditlog/auditlog.sh >/dev/null 2>&1" >> /tmp/tmp_crontab
+        crontab /tmp/tmp_crontab
+    fi
+    rm -rf /tmp/tmp_crontab
+}
+
 function post_work
 {
     echo "Now almost everything configurated, but you should modify attribute-resolver.xml/attribute-filter.xml according to your actural settings"
@@ -291,6 +317,7 @@ function startup
     checking_ldap_connectivity
     update_idp_configurations
     install_service
+    process_log
     post_work
 }
 
