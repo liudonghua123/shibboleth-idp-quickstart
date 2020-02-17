@@ -15,24 +15,67 @@ function cleanup
     rm -rf /opt/shibboleth-idp
 }
 
+function get_os
+{
+    cat /etc/os-release | grep "^ID=" |  cut -d= -f2-
+}
+
+function set_java_environment
+{
+    JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))
+    JRE_HOME="$(dirname $(dirname $(readlink -f $(which javac))))/jre"
+    grep JAVA_HOME /etc/environment 2>/dev/null && echo "JAVA_HOME already set" || echo "export JAVA_HOME=$JAVA_HOME" >> /etc/environment
+    grep JRE_HOME /etc/environment 2>/dev/null && echo "JRE_HOME already set" || echo "export JRE_HOME=$JRE_HOME" >> /etc/environment
+    source /etc/environment
+}
+
 function check_java
 {
     echo "checking java!"
     which java
     if [ $? -ne 0 ]; then
         echo "You should install java and set JAVA_HOME/JRE_HOME correctly before this operation"
-        exit 1
+        echo "Now install java..."
+        OS=$(get_os)
+        case "$OS" in
+        ubuntu)
+            apt-get update
+            apt-get install -y openjdk-8-jdk
+            ;;
+        centos)
+            yum update -y
+            yum install -y java-1.8.0-openjdk-devel java-1.8.0-openjdk
+            ;;
+        *)
+            echo "Unsupport OS, please contact liudonghua123@gmail.com"
+            exit 1
+            ;;
+        esac
+        set_java_environment
     elif [ -z "$JAVA_HOME" -o -z "$JRE_HOME" ]; then
-        echo "JAVA_HOME/JRE_HOME not set correctly, set them in /etc/environment, For example"
-        cat <<- EOF
-#cat /etc/environment 
-JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-JRE_HOME=/usr/lib/jvm/java-8-openjdk-amd64/jre
-PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:$JAVA_HOME/bin:$JRE_HOME/bin"
-EOF
-    else
+        echo "JAVA_HOME/JRE_HOME not set correctly, set them in /etc/environment"
+        set_java_environment
         echo "Java installed and configured ok"
     fi
+}
+
+function install_ldap_util
+{
+    OS=$(get_os)
+    case "$OS" in
+    ubuntu)
+        apt-get update
+        apt-get install -y ldap-utils
+        ;;
+    centos)
+        yum update -y
+        yum install -y openldap-clients
+        ;;
+    *)
+        echo "Unsupport OS, please contact liudonghua123@gmail.com"
+        exit 1
+        ;;
+    esac
 }
 
 function install_credentials
@@ -95,8 +138,9 @@ function update_tomcat_credential_settings
 function checking_ldap_connectivity
 {
     echo "trying to connect ldap to test its connectivity"
-    #TODOs
-    echo "ldap connection ok"
+    install_ldap_util
+    ldapwhoami -h $(get_property ldap.ip) -D $(get_property idp.authn.LDAP.bindDN) -w $(get_property idp.authn.LDAP.bindDNCredential)
+    $? && echo "ldap connection seems not correct" ||echo "ldap connection ok"
 }
 
 function update_idp_configurations
@@ -121,6 +165,109 @@ function update_idp_configurations
     grep -rl "#idp.authn.LDAP.bindDN" /opt/shibboleth-idp/conf | xargs sed -i "s|#idp.authn.LDAP.bindDN|$(get_property idp.authn.LDAP.bindDN)|g"
 }
 
+function install_service
+{
+    export CATALINA_HOME=/opt/apache-tomcat-8.5.50
+    which systemctl
+    if [ "$?" -eq 0 ]; then
+        echo -n "# Systemd unit file for tomcat
+[Unit]
+Description=Apache Tomcat Web Application Container
+After=syslog.target network.target
+
+[Service]
+Type=forking
+
+Environment=JAVA_HOME=$JAVA_HOME
+Environment=CATALINA_PID=$CATALINA_HOME/temp/tomcat.pid
+Environment=CATALINA_HOME=$CATALINA_HOME
+Environment=CATALINA_BASE=$CATALINA_HOME
+Environment='CATALINA_OPTS=-Xms1024M -Xmx2048M -server -XX:+UseParallelGC'
+Environment='JAVA_OPTS=-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom'
+
+ExecStart=$CATALINA_HOME/bin/startup.sh
+ExecStop=/bin/kill -15 $MAINPID
+
+User=root
+Group=root
+UMask=0007
+RestartSec=10
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+"  > /etc/systemd/system/tomcat.service
+        systemctl daemon-reload
+        # auto start when reboot
+        systemctl enable tomcat
+    else
+        # https://mkyong.com/tomcat/how-to-install-apache-tomcat-8-on-debian/
+        # https://coderwall.com/p/yqrusq/tomcat-7-init-d-script
+        cat > /etc/init.d/tomcat <<EOL
+#!/bin/bash
+#
+#https://wiki.debian.org/LSBInitScripts
+### BEGIN INIT INFO
+# Provides:          tomcat
+# Required-Start:    $local_fs $remote_fs $network
+# Required-Stop:     $local_fs $remote_fs $network
+# Should-Start:      $named
+# Should-Stop:       $named
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start Tomcat.
+# Description:       Start the Tomcat servlet engine.
+### END INIT INFO
+
+EOL
+        echo -n "
+export CATALINA_HOME=$CATALINA_HOME
+export JAVA_HOME=$JAVA_HOME
+" >> /etc/init.d/tomcat
+        cat >> /etc/init.d/tomcat <<EOL
+
+export PATH=$JAVA_HOME/bin:$PATH
+
+tomcat_pid() {
+    echo `ps -fe | grep $CATALINA_HOME | grep -v grep | tr -s " "|cut -d" " -f2`
+}
+start() {
+    echo "Starting Tomcat..."
+    /bin/su -s /bin/bash tomcat -c $CATALINA_HOME/bin/startup.sh
+}
+stop() {
+    echo "Stopping Tomcat..."
+    /bin/su -s /bin/bash tomcat -c $CATALINA_HOME/bin/shutdown.sh
+}
+status(){
+    pid=$(tomcat_pid)
+    if [ -n "$pid" ]; then echo -e "\e[00;32mTomcat is running with pid: $pid\e[00m"
+    else echo -e "\e[00;31mTomcat is not running\e[00m"
+    fi
+}
+case $1 in
+    start|stop|status) $1;;
+    restart) stop; start;;
+    *) echo "Usage : $0 <start|stop|status|restart>"; exit 1;;
+esac
+
+exit 0
+EOL
+        chmod 755 /etc/init.d/tomcat
+        # auto start when reboot
+        update-rc.d tomcat defaults
+    fi
+    service tomcat start
+    service tomcat status
+}
+
+function post_work
+{
+    echo "Now almost everything configurated, but you should modify attribute-resolver.xml/attribute-filter.xml according to your actural settings"
+    echo "You can start/stop/status your tomcat service use service command!"
+}
+
 function startup
 {
     check_java
@@ -130,6 +277,8 @@ function startup
     update_tomcat_credential_settings
     checking_ldap_connectivity
     update_idp_configurations
+    install_service
+    post_work
 }
 
 startup
