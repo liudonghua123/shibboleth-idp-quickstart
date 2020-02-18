@@ -10,6 +10,22 @@ function get_os() {
   cat /etc/os-release | grep "^ID=" | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'
 }
 
+important() {
+  echo -e "\e[35m${1}\e[0m"
+}
+
+info() {
+  echo -e "\e[32m${1}\e[0m"
+}
+
+warn() {
+  echo -e "\e[33m${1}\e[0m"
+}
+
+error() {
+  echo -e "\e[31m${1}\e[0m"
+}
+
 # read properties as bash variable
 credentials_key_path=$(get_property credentials.key.path)
 credentials_certs_path=$(get_property credentials.certs.path)
@@ -36,17 +52,17 @@ OS=$(get_os)
 function set_java_environment() {
   JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))
   JRE_HOME="$(dirname $(dirname $(readlink -f $(which javac))))/jre"
-  grep JAVA_HOME /etc/environment 2>/dev/null && echo "JAVA_HOME already set" || echo "export JAVA_HOME=$JAVA_HOME" >>/etc/environment
-  grep JRE_HOME /etc/environment 2>/dev/null && echo "JRE_HOME already set" || echo "export JRE_HOME=$JRE_HOME" >>/etc/environment
+  grep JAVA_HOME /etc/environment 2>/dev/null && info "JAVA_HOME already set" || echo "export JAVA_HOME=$JAVA_HOME" >>/etc/environment
+  grep JRE_HOME /etc/environment 2>/dev/null && info "JRE_HOME already set" || echo "export JRE_HOME=$JRE_HOME" >>/etc/environment
   source /etc/environment
 }
 
 function check_java() {
-  echo "checking java!"
+  important "checking java!"
   which java
   if [ $? -ne 0 ]; then
-    echo "You should install java and set JAVA_HOME/JRE_HOME correctly before this operation"
-    echo "Now install java..."
+    info "You should install java and set JAVA_HOME/JRE_HOME correctly before this operation"
+    info "Now install java..."
     case "$OS" in
       ubuntu)
         apt-get update
@@ -57,19 +73,20 @@ function check_java() {
         yum install -y java-1.8.0-openjdk-devel java-1.8.0-openjdk
         ;;
       *)
-        echo "Unsupport OS, please contact liudonghua123@gmail.com"
+        error "Unsupport OS, please contact liudonghua123@gmail.com"
         exit 1
         ;;
     esac
     set_java_environment
   elif [ -z "$JAVA_HOME" -o -z "$JRE_HOME" ]; then
-    echo "JAVA_HOME/JRE_HOME not set correctly, set them in /etc/environment"
+    warn "JAVA_HOME/JRE_HOME not set correctly, set them in /etc/environment"
     set_java_environment
-    echo "Java installed and configured ok"
+    info "Java installed and configured ok"
   fi
 }
 
 function install_ldap_util() {
+  important "install ldap utils"
   case "$OS" in
     ubuntu)
       apt-get update
@@ -80,46 +97,46 @@ function install_ldap_util() {
       yum install -y openldap-clients
       ;;
     *)
-      echo "Unsupport OS, please contact liudonghua123@gmail.com"
+      error "Unsupport OS, please contact liudonghua123@gmail.com"
       exit 1
       ;;
   esac
 }
 
 function install_credentials() {
-  echo "checking and creating credentials keystore!"
+  import "checking and creating credentials keystore!"
   # check whether credentials exist
   if [ ! -f "$credentials_keystore_path" ]; then
     mkdir -p /opt/credentials 2>/dev/null
-    echo "keystore $credentials_keystore_path not exist, try to check whether $credentials_key_path exists"
+    warn "keystore $credentials_keystore_path not exist, try to check whether $credentials_key_path exists"
     if [ ! -f "$credentials_key_path" ]; then
-      echo "key $credentials_key_path not exits, will generate a self signed key ($credentials_key_path) and cert ($credentials_certs_path) pair in pem format"
+      warn "key $credentials_key_path not exits, will generate a self signed key ($credentials_key_path) and cert ($credentials_certs_path) pair in pem format"
       openssl req -x509 -sha256 -nodes -days 3650 -subj "/CN=*.$idp_scope" -newkey rsa:2048 -keyout $credentials_key_path -out $credentials_certs_path
     fi
     # now the key and cert are prepared
     openssl pkcs12 -export -out $credentials_keystore_path -inkey $credentials_key_path -in $credentials_certs_path -passout pass:changeit
   fi
-  echo "credentials keystore prepared!"
+  info "credentials keystore prepared!"
 }
 
 function install_tomcat() {
-  echo "extract $TOMCAT_FILENAME.tar.gz to /opt/"
+  important "extract $TOMCAT_FILENAME.tar.gz to /opt/"
   tar -xzf $TOMCAT_FILENAME.tar.gz -C /opt/
 }
 
 function install_idp() {
-  echo "extract $IDP_FILENAME.tar.gz to /opt"
+  important "extract $IDP_FILENAME.tar.gz to /opt"
   tar -xzf $IDP_FILENAME.tar.gz -C /opt
   # run install of idp
-  echo "install the $IDP_FILENAME to $idp_target_dir"
-  echo execute /opt/$IDP_FILENAME/bin/install.sh \
+  info "install the $IDP_FILENAME to $idp_target_dir"
+  info "running... /opt/$IDP_FILENAME/bin/install.sh \
     -Didp.src.dir=$idp_src_dir \
     -Didp.target.dir=$idp_target_dir \
     -Didp.host.name=$idp_host_name \
     -Didp.entityID="https://$idp_scope/idp/shibboleth" \
     -Didp.scope=$idp_scope \
     -Didp.keystore.password=$credentials_keystore_password \
-    -Didp.sealer.password=$credentials_keystore_password
+    -Didp.sealer.password=$credentials_keystore_password"
   /opt/$IDP_FILENAME/bin/install.sh \
     -Didp.src.dir=$idp_src_dir \
     -Didp.target.dir=$idp_target_dir \
@@ -131,7 +148,7 @@ function install_idp() {
 }
 
 function update_tomcat_credential_settings() {
-  echo "update credentials.keystore.path/credentials.keystore.password settings in tomcat configuration files"
+  important "update credentials.keystore.path/credentials.keystore.password settings in tomcat configuration files"
   credentials_keystore_path=$credentials_keystore_path
   credentials_keystore_password=$credentials_keystore_password
   # https://linuxize.com/post/how-to-use-sed-to-find-and-replace-string-in-files/
@@ -140,14 +157,14 @@ function update_tomcat_credential_settings() {
 }
 
 function checking_ldap_connectivity() {
-  echo "trying to connect ldap to test its connectivity"
+  important "trying to connect ldap to test its connectivity"
   install_ldap_util
   ldapwhoami -h $ldap_ip -D $idp_authn_LDAP_bindDN -w $idp_authn_LDAP_bindDNCredential
-  $? && echo "ldap connection seems not correct" || echo "ldap connection ok"
+  $? && warn "ldap connection seems not correct" || info "ldap connection ok"
 }
 
 function update_idp_configurations() {
-  echo update_ldap_settings_of_idp
+  important "update ldap settings of idp"
   # backup
   cp $idp_target_dir/conf/ldap.properties $idp_target_dir/conf/ldap.properties.default
   cp $idp_target_dir/conf/attribute-resolver.xml $idp_target_dir/conf/attribute-resolver.xml.default
@@ -172,6 +189,7 @@ function update_idp_configurations() {
 }
 
 function install_service() {
+  important "installing tomcat system service"
   export CATALINA_HOME=/opt/$TOMCAT_FILENAME
   which systemctl
   if [ "$?" -eq 0 ]; then
@@ -267,7 +285,7 @@ EOL
 }
 
 function process_log() {
-  echo "processing log configurations"
+  important "processing log configurations"
   mkdir -p /var/www/html/auditlog/ 2>/dev/null
   cat >/var/www/html/auditlog/auditlog.sh <<EOL
 #!/usr/bin/env bash
@@ -284,7 +302,7 @@ EOL
   crontab -l >/tmp/tmp_crontab
   grep auditlog /tmp/tmp_crontab
   if [ "$?" -ne 0 ]; then
-    echo "auditlog crontab job not found, installing..."
+    warn "auditlog crontab job not found, installing..."
     echo "0 */1 * * * sh /var/www/html/auditlog/auditlog.sh >/dev/null 2>&1" >>/tmp/tmp_crontab
     crontab /tmp/tmp_crontab
   fi
@@ -305,14 +323,14 @@ function process_ntp() {
         yum install -y ntp
         ;;
       *)
-        echo "Unsupport OS, please contact liudonghua123@gmail.com"
+        error "Unsupport OS, please contact liudonghua123@gmail.com"
         exit 1
         ;;
     esac
   fi
-  echo "updating time from ntp.aliyun.com"
+  info "updating time from ntp.aliyun.com"
   ntpdate -u ntp.aliyun.com
-  echo "setting timezone to Asia/Shanghai"
+  info "setting timezone to Asia/Shanghai"
   timedatectl set-timezone Asia/Shanghai
   if [ ! -f /etc/ntp.conf.default ]; then
     cp /etc/ntp.conf /etc/ntp.conf.default
@@ -322,8 +340,8 @@ function process_ntp() {
 }
 
 function post_work() {
-  echo "Now almost everything configurated, but you should modify attribute-resolver.xml/attribute-filter.xml according to your actural settings"
-  echo "You can start/stop/status your tomcat service use service command!"
+  important "Now almost everything configurated, but you should modify attribute-resolver.xml/attribute-filter.xml according to your actural settings"
+  important "You can start/stop/status your tomcat service use service command!"
 }
 
 function startup() {
