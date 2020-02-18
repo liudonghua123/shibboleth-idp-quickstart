@@ -7,7 +7,7 @@ function get_property() {
 }
 
 function get_os() {
-  cat /etc/os-release | grep "^ID=" | cut -d= -f2-
+  cat /etc/os-release | grep "^ID=" | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'
 }
 
 # read properties as bash variable
