@@ -165,6 +165,8 @@ function update_idp_configurations() {
   grep -rl "#idp.authn.LDAP.userFilter" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.userFilter|$idp_authn_LDAP_userFilter|g"
   grep -rl "#idp.authn.LDAP.bindDNCredential" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.bindDNCredential|$idp_authn_LDAP_bindDNCredential|g"
   grep -rl "#idp.authn.LDAP.bindDN" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.bindDN|$idp_authn_LDAP_bindDN|g"
+  # copy CARSI Certificate
+  cp conf/dsmeta.pem $idp_target_dir/credentials/
 }
 
 function install_service() {
