@@ -167,6 +167,8 @@ function update_idp_configurations() {
   grep -rl "#idp.authn.LDAP.bindDN" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.bindDN|$idp_authn_LDAP_bindDN|g"
   # copy CARSI Certificate
   cp conf/dsmeta.pem $idp_target_dir/credentials/
+  # copy zh-CN translations
+  cp conf/messages_zh_CN.properties $idp_target_dir/system/messages/
 }
 
 function install_service() {
