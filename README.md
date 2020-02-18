@@ -22,7 +22,7 @@ _PR is welcome!_
 
 ### Snapshots
 
-![quickstart](resources/quickstart.gif)
+![quickstart](resources/quickstart.svg)
 
 ### LICENSE
 
