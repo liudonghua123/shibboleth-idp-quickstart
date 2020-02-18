@@ -20,6 +20,10 @@ _PR is welcome!_
 - [ ] Add some kind attribute-resolver/attribute-filter automatic replacement support.
 - [ ] Add SUSE support.
 
+### Snapshots
+
+![quickstart](resources/quickstart.gif)
+
 ### LICENSE
 
 MIT License
