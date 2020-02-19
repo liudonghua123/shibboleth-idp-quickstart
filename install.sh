@@ -127,6 +127,9 @@ function install_tomcat() {
 function install_idp() {
   important "extract $IDP_FILENAME.tar.gz to /opt"
   tar -xzf $IDP_FILENAME.tar.gz -C /opt
+  info "patch bin/build.xml for correctly set sealer password"
+  mv /opt/$IDP_FILENAME/bin/build.xml /opt/$IDP_FILENAME/bin/build.xml.default
+  cp conf/build.xml /opt/$IDP_FILENAME/bin/build.xml
   # run install of idp
   info "install the $IDP_FILENAME to $idp_target_dir"
   info "running... /opt/$IDP_FILENAME/bin/install.sh \
