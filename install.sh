@@ -173,6 +173,8 @@ function update_idp_configurations() {
   cp $idp_target_dir/conf/attribute-resolver.xml $idp_target_dir/conf/attribute-resolver.xml.default
   cp $idp_target_dir/conf/audit.xml $idp_target_dir/conf/audit.xml.default
   cp $idp_target_dir/conf/metadata-providers.xml $idp_target_dir/conf/metadata-providers.xml.default
+  # copy the metadata files
+  cp conf/metadata/* $idp_target_dir/metadata/
   # use configurated files
   cp conf/ldap.properties $idp_target_dir/conf/ldap.properties
   cp conf/attribute-filter.xml $idp_target_dir/conf/attribute-filter.xml

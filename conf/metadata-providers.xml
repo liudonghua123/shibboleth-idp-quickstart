@@ -112,15 +112,21 @@
     </MetadataProvider>
 
     <MetadataProvider id="CNKIHTTPMetadata"
-         xsi:type="FileBackedHTTPMetadataProvider"
-         backingFile="%{idp.home}/metadata/cnki-metadata.xml"
-	 metadataURL="http://saml.cnki.net/fed/cnki-metadata.xml">
+        xsi:type="FileBackedHTTPMetadataProvider"
+        backingFile="%{idp.home}/metadata/cnki-metadata.xml"
+	    metadataURL="http://saml.cnki.net/fed/cnki-metadata.xml">
         <!--
         <MetadataFilter xsi:type="SignatureValidation" certificateFile="/opt/shibboleth-idp/credentials/dsmeta.pem" />
         <MetadataFilter xsi:type="EntityRoleWhiteList">
             <RetainedRole>md:SPSSODescriptor</RetainedRole>
         </MetadataFilter>
         -->
+    </MetadataProvider>
+    
+    <MetadataProvider id="eduGainHTTPMetadata" 
+        xsi:type="FileBackedHTTPMetadataProvider" 
+        backingFile="%{idp.home}/metadata/edugain-metadata.xml" 
+        metadataURL="https://mds.edugain.org/edugain-v1.xml">
     </MetadataProvider>
 
 </MetadataProvider>
