@@ -35,12 +35,8 @@ idp_src_dir=$(get_property idp.src.dir)
 idp_target_dir=$(get_property idp.target.dir)
 idp_host_name=$(get_property idp.host.name)
 idp_scope=$(get_property idp.scope)
-ldap_ip=$(get_property ldap.ip)
-idp_authn_LDAP_ldapURL=$(get_property idp.authn.LDAP.ldapURL)
-idp_authn_LDAP_baseDN=$(get_property idp.authn.LDAP.baseDN)
-idp_authn_LDAP_userFilter=$(get_property idp.authn.LDAP.userFilter)
-idp_authn_LDAP_bindDN=$(get_property idp.authn.LDAP.bindDN)
-idp_authn_LDAP_bindDNCredential=$(get_property idp.authn.LDAP.bindDNCredential)
+shibcas_casServerUrlPrefix=$(get_property shibcas.casServerUrlPrefix)
+shibcas_casServerLoginUrl=$(get_property shibcas.casServerLoginUrl)
 
 # define the filename const
 IDP_FILENAME=shibboleth-identity-provider-3.4.6
@@ -167,30 +163,36 @@ function checking_ldap_connectivity() {
 }
 
 function update_idp_configurations() {
-  important "update ldap settings of idp"
+  important "update idp configurations"
   # backup
-  cp $idp_target_dir/conf/ldap.properties $idp_target_dir/conf/ldap.properties.default
+  cp $idp_target_dir/conf/idp.properties $idp_target_dir/conf/idp.properties.default
   cp $idp_target_dir/conf/attribute-resolver.xml $idp_target_dir/conf/attribute-resolver.xml.default
   cp $idp_target_dir/conf/audit.xml $idp_target_dir/conf/audit.xml.default
   cp $idp_target_dir/conf/metadata-providers.xml $idp_target_dir/conf/metadata-providers.xml.default
   # copy the metadata files
   cp conf/metadata/* $idp_target_dir/metadata/
   # use configurated files
-  cp conf/ldap.properties $idp_target_dir/conf/ldap.properties
   cp conf/attribute-filter.xml $idp_target_dir/conf/attribute-filter.xml
   cp conf/attribute-resolver.xml $idp_target_dir/conf/attribute-resolver.xml
   cp conf/audit.xml $idp_target_dir/conf/audit.xml
   cp conf/metadata-providers.xml $idp_target_dir/conf/metadata-providers.xml
   # updating...
-  grep -rl "#idp.authn.LDAP.ldapURL" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.ldapURL|$idp_authn_LDAP_ldapURL|g"
-  grep -rl "#idp.authn.LDAP.baseDN" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.baseDN|$idp_authn_LDAP_baseDN|g"
-  grep -rl "#idp.authn.LDAP.userFilter" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.userFilter|$idp_authn_LDAP_userFilter|g"
-  grep -rl "#idp.authn.LDAP.bindDNCredential" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.bindDNCredential|$idp_authn_LDAP_bindDNCredential|g"
-  grep -rl "#idp.authn.LDAP.bindDN" $idp_target_dir/conf | xargs sed -i "s|#idp.authn.LDAP.bindDN|$idp_authn_LDAP_bindDN|g"
+  # https://wiki.carsi.edu.cn/pages/viewpage.action?pageId=1998863
+  # https://github.com/Unicon/shib-cas-authn3/releases/tag/3.3.0
+  grep -rl "idp.authn.flows=Password" $idp_target_dir/conf/idp.properties | xargs sed -i "s|idp.authn.flows=Password|idp.authn.flows=External|g"
+  echo -n "
+shibcas.casServerUrlPrefix=$shibcas_casServerUrlPrefix
+shibcas.casServerLoginUrl=$shibcas_casServerLoginUrl
+shibcas.serverName=https://$idp_host_name/
+" > /opt/shibboleth-idp/conf/idp.properties
   # copy CARSI Certificate
   cp conf/dsmeta.pem $idp_target_dir/credentials/
   # copy zh-CN translations
   cp conf/messages_zh_CN.properties $idp_target_dir/system/messages/
+  # copy cas releated files
+  cp conf/cas-client-core-3.6.0.jar /opt/shibboleth-idp/edit-webapp/WEB-INF/lib/
+  cp conf/shib-cas-authenticator-3.3.0.jar /opt/shibboleth-idp/edit-webapp/WEB-INF/lib/
+  cp conf/web.xml /opt/shibboleth-idp/edit-webapp/WEB-INF/
 }
 
 function install_service() {
@@ -356,7 +358,7 @@ function startup() {
   install_tomcat
   install_idp
   update_tomcat_credential_settings
-  checking_ldap_connectivity
+  # checking_ldap_connectivity
   update_idp_configurations
   install_service
   process_log

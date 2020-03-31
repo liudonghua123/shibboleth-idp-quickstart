@@ -7,14 +7,7 @@ idp.src.dir=/opt/shibboleth-identity-provider-3.4.6
 idp.target.dir=/opt/shibboleth-idp
 idp.host.name=idp.ynu.edu.cn
 idp.scope=ynu.edu.cn
-
-ldap.ip=<your_ldap_ip>
-
-idp.authn.LDAP.ldapURL=ldap://<your_ldap_ip>:389
-# example: dc=ynu,dc=edu,dc=cn
-idp.authn.LDAP.baseDN=dc=<your_ldap_basedn>
-# example: (uid={user})
-idp.authn.LDAP.userFilter=(uid={user})
-# example: uid=idp,ou=Manager,dc=ynu,dc=edu,dc=cn
-idp.authn.LDAP.bindDN=<your_ldap_manager_dn>
-idp.authn.LDAP.bindDNCredential=<your_ldap_manager_password>
+ 
+# CAS configuration
+shibcas.casServerUrlPrefix=https://ids.ynu.edu.cn/authserver/
+shibcas.casServerLoginUrl=${shibcas.casServerUrlPrefix}/login
