@@ -132,7 +132,7 @@ function install_idp() {
     -Didp.src.dir=$idp_src_dir \
     -Didp.target.dir=$idp_target_dir \
     -Didp.host.name=$idp_host_name \
-    -Didp.entityID="https://$idp_scope/idp/shibboleth" \
+    -Didp.entityID="https://$idp_host_name/idp/shibboleth" \
     -Didp.scope=$idp_scope \
     -Didp.keystore.password=$credentials_keystore_password \
     -Didp.sealer.password=$credentials_keystore_password"
@@ -140,7 +140,7 @@ function install_idp() {
     -Didp.src.dir=$idp_src_dir \
     -Didp.target.dir=$idp_target_dir \
     -Didp.host.name=$idp_host_name \
-    -Didp.entityID="https://$idp_scope/idp/shibboleth" \
+    -Didp.entityID="https://$idp_host_name/idp/shibboleth" \
     -Didp.scope=$idp_scope \
     -Didp.keystore.password=$credentials_keystore_password \
     -Didp.sealer.password=$credentials_keystore_password
@@ -183,8 +183,8 @@ function update_idp_configurations() {
   echo -n "
 shibcas.casServerUrlPrefix=$shibcas_casServerUrlPrefix
 shibcas.casServerLoginUrl=$shibcas_casServerLoginUrl
-shibcas.serverName=https://$idp_host_name/
-" > /opt/shibboleth-idp/conf/idp.properties
+shibcas.serverName=https://$idp_host_name
+" >> /opt/shibboleth-idp/conf/idp.properties
   # copy CARSI Certificate
   cp conf/dsmeta.pem $idp_target_dir/credentials/
   # copy zh-CN translations
